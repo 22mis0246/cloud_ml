@@ -1,24 +1,39 @@
-from flask import Blueprint, render_template, request, redirect, session
+from pathlib import Path
+from flask import Blueprint, render_template, request, redirect, session, flash, url_for
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
-from models import db, User, LoginLog
+from models import db, User, LoginLog, SecurityAlert
 import joblib
 import pandas as pd
 
 auth = Blueprint("auth", __name__)
+MODEL_DIR = Path(__file__).resolve().parent.parent
+
+
+def infer_device_type(device_full):
+    mobile_tokens = ("Mobile", "Android", "iPhone", "iPad")
+    return "Mobile" if any(token in device_full for token in mobile_tokens) else "Desktop"
 
 
 @auth.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "POST":
         username = request.form["username"]
-        password = generate_password_hash(request.form["password"])
+        raw_password = request.form["password"]
+
+        existing_user = User.query.filter_by(username=username).first()
+        if existing_user:
+            flash("That username already exists. Try another one.", "warning")
+            return redirect(url_for("auth.register"))
+
+        password = generate_password_hash(raw_password)
 
         user = User(username=username, password=password)
         db.session.add(user)
         db.session.commit()
 
-        return redirect("/login")
+        flash("Account created. You can log in now.", "success")
+        return redirect(url_for("auth.login"))
 
     return render_template("register.html")
 
@@ -32,7 +47,6 @@ def login():
         user = User.query.filter_by(username=username).first()
 
         if user and check_password_hash(user.password, password):
-            session["user_id"] = user.id
 
             # ------------------------
             # Feature Extraction
@@ -82,10 +96,7 @@ def login():
             login_hour = now.hour
             ip_group = ".".join(ip_parts[:2]) if len(ip_parts) >= 2 else ip
 
-            if "Mobile" in device_full:
-                device_type = "Mobile"
-            else:
-                device_type = "Desktop"
+            device_type = infer_device_type(device_full)
             
 
             # ------------------------
@@ -113,18 +124,21 @@ def login():
                 db.session.add(log)
                 db.session.commit()
 
-                return redirect("/dashboard")
+                session["user_id"] = user.id
+                flash("Learning mode active. Login approved and behavior recorded.", "info")
+                return redirect(url_for("dashboard.home"))
 
             # ------------------------
             # Run Anomaly Detection
             # ------------------------
             try:
-                model = joblib.load("anomaly_model.pkl")
-                le_ip = joblib.load("ip_encoder.pkl")
-                le_device = joblib.load("device_encoder.pkl")
-                scaler = joblib.load("scaler.pkl")
-            except:
-                return "Model not found. Train model first."
+                model = joblib.load(MODEL_DIR / "anomaly_model.pkl")
+                le_ip = joblib.load(MODEL_DIR / "ip_encoder.pkl")
+                le_device = joblib.load(MODEL_DIR / "device_encoder.pkl")
+                scaler = joblib.load(MODEL_DIR / "scaler.pkl")
+            except Exception:
+                flash("Security model not found. Train the model before checking advanced risk.", "danger")
+                return redirect(url_for("auth.login"))
 
             # Encode categorical features
             try:
@@ -154,16 +168,43 @@ def login():
             print("Prediction:", prediction)
 
             if prediction == -1:
-                return "🚨 Suspicious login detected! Access denied."
+                alert = SecurityAlert(
+                    user_id=user.id,
+                    title="Suspicious login attempt blocked",
+                    message=(
+                        f"We blocked an unusual login attempt for {user.username}. "
+                        f"Review the source IP and device fingerprint before trusting it."
+                    ),
+                    risk_level="critical",
+                    source_ip=ip,
+                    ip_group=ip_group,
+                    device_type=device_type,
+                    login_hour=login_hour,
+                )
+                db.session.add(alert)
+                db.session.commit()
+                session.clear()
+                return render_template(
+                    "alert_blocked.html",
+                    username=user.username,
+                    attempted_at=now.strftime("%d %b %Y, %I:%M %p"),
+                    source_ip=ip,
+                    ip_group=ip_group,
+                    device_type=device_type,
+                    login_hour=login_hour,
+                )
 
             # If normal login
             db.session.add(log)
             db.session.commit()
 
-            return redirect("/dashboard")
+            session["user_id"] = user.id
+            flash("Identity verified. Access granted.", "success")
+            return redirect(url_for("dashboard.home"))
 
         else:
-            return "Invalid credentials"
+            flash("Invalid credentials. Check your username and password.", "danger")
+            return redirect(url_for("auth.login"))
 
     return render_template("login.html")
 
@@ -171,4 +212,5 @@ def login():
 @auth.route("/logout")
 def logout():
     session.clear()
-    return redirect("/login")
+    flash("Session closed.", "info")
+    return redirect(url_for("auth.login"))

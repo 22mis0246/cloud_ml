@@ -1,6 +1,152 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Dashboard</h2>
-<p>Login successful.</p>
-<a href="/logout">Logout</a>
+<section class="dashboard-shell">
+    <header class="console-bar" data-reveal>
+        <div>
+            <p class="eyebrow">Threat Console</p>
+            <h1>{{ user.username }}</h1>
+            <p class="console-subtitle">Live account telemetry and anomaly response center.</p>
+        </div>
+        <div class="console-actions">
+            <div class="live-clock" data-live-clock></div>
+            <a href="{{ url_for('auth.logout') }}" class="button button-secondary">Logout</a>
+        </div>
+    </header>
+
+    <section class="metrics-grid" data-reveal>
+        <article class="metric-card">
+            <span class="metric-label">Active Alerts</span>
+            <strong>{{ active_alerts|length }}</strong>
+            <p>Unacknowledged suspicious attempts tied to your identity.</p>
+        </article>
+        <article class="metric-card">
+            <span class="metric-label">Approved Logins</span>
+            <strong>{{ total_logins }}</strong>
+            <p>Sessions allowed through the security gate.</p>
+        </article>
+        <article class="metric-card">
+            <span class="metric-label">Known Devices</span>
+            <strong>{{ trusted_devices }}</strong>
+            <p>Device categories seen in your recent accepted sessions.</p>
+        </article>
+        <article class="metric-card">
+            <span class="metric-label">Last Access</span>
+            <strong>
+                {% if last_login %}
+                    {{ last_login.login_time.strftime("%d %b, %I:%M %p") }}
+                {% else %}
+                    No records
+                {% endif %}
+            </strong>
+            <p>Most recent approved entry into the dashboard.</p>
+        </article>
+    </section>
+
+    <section class="dashboard-grid">
+        <div class="panel" data-reveal>
+            <div class="panel-heading">
+                <div>
+                    <p class="eyebrow">Alert Center</p>
+                    <h2>Suspicious Login Warnings</h2>
+                </div>
+            </div>
+
+            {% if alerts %}
+                <div class="alert-list">
+                    {% for alert in alerts %}
+                        <article class="alert-card {% if not alert.acknowledged %}alert-card-active{% endif %}">
+                            <div class="alert-topline">
+                                <span class="alert-badge">{{ alert.risk_level|upper }}</span>
+                                <span class="alert-time">{{ alert.created_at.strftime("%d %b %Y, %I:%M %p") }}</span>
+                            </div>
+                            <h3>{{ alert.title }}</h3>
+                            <p>{{ alert.message }}</p>
+                            <dl class="alert-meta">
+                                <div>
+                                    <dt>Source IP</dt>
+                                    <dd>{{ alert.source_ip or "Unavailable" }}</dd>
+                                </div>
+                                <div>
+                                    <dt>IP Group</dt>
+                                    <dd>{{ alert.ip_group or "Unavailable" }}</dd>
+                                </div>
+                                <div>
+                                    <dt>Device</dt>
+                                    <dd>{{ alert.device_type or "Unknown" }}</dd>
+                                </div>
+                                <div>
+                                    <dt>Hour</dt>
+                                    <dd>
+                                        {% if alert.login_hour is not none %}
+                                            {{ "%02d:00"|format(alert.login_hour) }}
+                                        {% else %}
+                                            Unknown
+                                        {% endif %}
+                                    </dd>
+                                </div>
+                            </dl>
+
+                            {% if not alert.acknowledged %}
+                                <form method="POST" action="{{ url_for('dashboard.acknowledge_alert', alert_id=alert.id) }}">
+                                    <button type="submit" class="button button-primary">Acknowledge Alert</button>
+                                </form>
+                            {% else %}
+                                <p class="resolved-copy">Marked as reviewed.</p>
+                            {% endif %}
+                        </article>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <h3>No suspicious activity recorded.</h3>
+                    <p>Your account has a clean alert board right now.</p>
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="stack">
+            <div class="panel" data-reveal>
+                <div class="panel-heading">
+                    <div>
+                        <p class="eyebrow">Accepted Sessions</p>
+                        <h2>Recent Login Activity</h2>
+                    </div>
+                </div>
+
+                {% if recent_logs %}
+                    <div class="log-list">
+                        {% for log in recent_logs %}
+                            <article class="log-item">
+                                <div>
+                                    <strong>{{ log.login_time.strftime("%d %b %Y") }}</strong>
+                                    <p>{{ log.login_time.strftime("%I:%M %p") }} • {{ log.device_type }} • {{ log.ip_group }}</p>
+                                </div>
+                                <span class="log-tag">Approved</span>
+                            </article>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="empty-state">
+                        <h3>No approved logins yet.</h3>
+                        <p>Once access is granted, your session history appears here.</p>
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="panel panel-accent" data-reveal>
+                <div class="panel-heading">
+                    <div>
+                        <p class="eyebrow">Operator Guidance</p>
+                        <h2>What To Do If You See An Alert</h2>
+                    </div>
+                </div>
+                <ul class="guidance-list">
+                    <li>Change your password if the login source does not look familiar.</li>
+                    <li>Compare the alert IP group and device with your normal behavior.</li>
+                    <li>Keep acknowledged alerts for investigation notes and trend review.</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+</section>
 {% endblock %}

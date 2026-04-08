@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, redirect, session, url_for
 from config import Config
 from models import db
 from routes.auth import auth
@@ -21,7 +21,9 @@ app.register_blueprint(dashboard)
 
 @app.route("/")
 def home():
-    return "AI Login Security System Running"
+    if session.get("user_id"):
+        return redirect(url_for("dashboard.home"))
+    return redirect(url_for("auth.login"))
 
 @app.route("/logs")
 def view_logs():

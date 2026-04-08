@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="blocked-shell" data-reveal>
+    <div class="blocked-card">
+        <p class="eyebrow">Access Denied</p>
+        <h1>Suspicious login blocked</h1>
+        <p class="blocked-copy">
+            The anomaly engine stopped this sign-in for <strong>{{ username }}</strong>
+            because the request did not match the learned behavior profile.
+        </p>
+
+        <dl class="alert-meta blocked-meta">
+            <div>
+                <dt>Attempt Time</dt>
+                <dd>{{ attempted_at }}</dd>
+            </div>
+            <div>
+                <dt>Source IP</dt>
+                <dd>{{ source_ip }}</dd>
+            </div>
+            <div>
+                <dt>IP Group</dt>
+                <dd>{{ ip_group }}</dd>
+            </div>
+            <div>
+                <dt>Device</dt>
+                <dd>{{ device_type }}</dd>
+            </div>
+            <div>
+                <dt>Hour</dt>
+                <dd>{{ "%02d:00"|format(login_hour) }}</dd>
+            </div>
+        </dl>
+
+        <p class="blocked-note">
+            This event has been recorded as a security alert for the account owner.
+        </p>
+
+        <a href="{{ url_for('auth.login') }}" class="button button-primary">Return To Login</a>
+    </div>
+</section>
+{% endblock %}

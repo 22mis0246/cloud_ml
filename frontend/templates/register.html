@@ -1,10 +1,54 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Register</h2>
-<form method="POST">
-    <input type="text" name="username" required><br><br>
-    <input type="password" name="password" required><br><br>
-    <button type="submit">Register</button>
-</form>
-<a href="/login">Login</a>
+<section class="auth-layout">
+    <div class="hero-panel" data-reveal>
+        <p class="eyebrow">Identity Provisioning</p>
+        <h1>Enroll new users into a monitored cyber perimeter.</h1>
+        <p class="hero-copy">
+            Every account enters a short learning phase, then the anomaly engine
+            begins watching for hostile access patterns.
+        </p>
+        <div class="hero-stats">
+            <div class="stat-chip">
+                <span class="stat-label">Phase 01</span>
+                <strong>Account Setup</strong>
+            </div>
+            <div class="stat-chip">
+                <span class="stat-label">Phase 02</span>
+                <strong>Behavior Learning</strong>
+            </div>
+            <div class="stat-chip">
+                <span class="stat-label">Phase 03</span>
+                <strong>Threat Detection</strong>
+            </div>
+        </div>
+    </div>
+
+    <div class="auth-card" data-reveal>
+        <div class="card-header">
+            <p class="eyebrow">Registration</p>
+            <h2>Create Secure Identity</h2>
+            <p>Set up a new operator account for the security console.</p>
+        </div>
+
+        <form method="POST" class="auth-form">
+            <label>
+                <span>Username</span>
+                <input type="text" name="username" placeholder="name@example.com" required>
+            </label>
+
+            <label>
+                <span>Password</span>
+                <input type="password" name="password" placeholder="Choose a strong password" required>
+            </label>
+
+            <button type="submit" class="button button-primary">Provision Account</button>
+        </form>
+
+        <p class="switch-copy">
+            Already enrolled?
+            <a href="{{ url_for('auth.login') }}">Return to login</a>
+        </p>
+    </div>
+</section>
 {% endblock %}
